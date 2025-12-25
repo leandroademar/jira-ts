@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import CreateIssueForm from './components/CreateIssueForm';
 import IssueDetails from './components/IssueDetails';
 import Login from './components/Login';
-import { fetchCurrentUser, fetchUserTickets } from './api/jira';
+import { fetchCurrentUser, fetchMyTickets } from './api/jira';
 import { useAuth } from './contexts/AuthContext';
 
 function App() {
@@ -31,14 +31,14 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Fetch user data and tickets for authenticated user
+      // Fetch user data and all project tickets (team view)
       const [userData, ticketsData] = await Promise.all([
         fetchCurrentUser(),
-        fetchUserTickets(authUser.email)
+        fetchMyTickets()
       ]);
       
       setUser(userData);
-      setAllTickets(ticketsData);
+      setAllTickets(ticketsData.issues || ticketsData); // Handle potential {issues: [], ...} structure or direct array
     } catch (err) {
       setError(err.message);
       console.error('Error loading data:', err);

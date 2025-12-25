@@ -129,6 +129,11 @@ const getAuthHeaders = () => {
 const jiraRequest = async (endpoint, options = {}) => {
   const url = endpoint.startsWith('http') ? endpoint : `${JIRA_BASE_URL}${endpoint}`;
   
+  // Log para depuração de chamadas search
+  if (endpoint.includes('search')) {
+    console.log(`[jiraRequest] ${options.method || 'GET'} ${url}`);
+  }
+  
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -165,6 +170,8 @@ const jiraRequest = async (endpoint, options = {}) => {
 /**
  * Busca issues usando o endpoint de pesquisa com paginação automática.
  * 
+ * Migrado para a nova API /search/jql que usa paginação por token.
+ * 
  * @async
  * @param {Object} searchParams - Parâmetros de pesquisa.
  * @param {string} searchParams.jql - Query JQL.
@@ -175,7 +182,7 @@ const jiraRequest = async (endpoint, options = {}) => {
  * 
  * @returns {Promise<Object>} Objeto com issues e metadados.
  * 
- * @see {@link https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-post}
+ * @see {@link https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-post}
  */
 const searchIssues = async ({
   jql,
@@ -185,38 +192,74 @@ const searchIssues = async ({
   fetchAll = true
 }) => {
   let allIssues = [];
-  let startAt = 0;
-  let total = 0;
-  let hasMore = true;
+  let nextPageToken = undefined;
+  let isLast = false;
 
   console.log(`[searchIssues] JQL: ${jql}`);
 
-  while (hasMore) {
-    // Usar POST para pesquisa conforme recomendado para JQL complexo
+  while (!isLast) {
+    // Nova API /search/jql usa paginação por token (nextPageToken)
+    // Conforme documentação: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-post
     const requestBody = {
       jql,
-      startAt,
-      maxResults,
-      fields,
-      expand
+      maxResults
     };
+    
+    // Adicionar nextPageToken apenas se existir (não incluir na primeira requisição)
+    if (nextPageToken) {
+      requestBody.nextPageToken = nextPageToken;
+    }
+    
+    // Adicionar fields apenas se fornecido e não vazio
+    if (fields && Array.isArray(fields) && fields.length > 0) {
+      requestBody.fields = fields;
+    }
+    
+    // Adicionar expand apenas se fornecido e não vazio
+    if (expand && Array.isArray(expand) && expand.length > 0) {
+      requestBody.expand = expand;
+    }
 
-    const data = await jiraRequest('/search', {
-      method: 'POST',
-      body: JSON.stringify(requestBody)
-    });
+    try {
+      console.log(`[searchIssues] Requesting page: maxResults=${maxResults}, hasNextToken=${!!nextPageToken}`);
+      console.log(`[searchIssues] Request body:`, JSON.stringify(requestBody, null, 2));
+      const data = await jiraRequest('/search/jql', {
+        method: 'POST',
+        body: JSON.stringify(requestBody),
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
-    allIssues = allIssues.concat(data.issues || []);
-    total = data.total || 0;
-    startAt += maxResults;
-    hasMore = fetchAll && startAt < total;
+      if (!data) {
+        console.warn('[searchIssues] Empty response from Jira');
+        isLast = true;
+        break;
+      }
 
-    console.log(`[searchIssues] Progresso: ${allIssues.length}/${total}`);
+      // A nova API retorna issues, isLast e nextPageToken
+      const issues = data.issues || [];
+      allIssues = allIssues.concat(issues);
+      
+      isLast = data.isLast === true;
+      nextPageToken = data.nextPageToken;
+
+      console.log(`[searchIssues] Progresso: ${allIssues.length} issues (isLast=${isLast})`);
+
+      // Se não há mais issues e não há token, parar
+      if (!fetchAll || (issues.length === 0 && !nextPageToken)) {
+        isLast = true;
+      }
+    } catch (error) {
+      console.error('[searchIssues] Error in jiraRequest:', error.message);
+      console.error('[searchIssues] Error status:', error.status);
+      throw error;
+    }
   }
 
   return {
     issues: allIssues,
-    total,
+    total: allIssues.length,
     startAt: 0,
     maxResults: allIssues.length
   };
@@ -445,15 +488,59 @@ app.get('/api/tickets/reported', async (req, res) => {
 });
 
 /**
- * @route GET /api/tickets/user/:accountId
- * @description Busca issues por accountId do usuário.
+ * @route GET /api/tickets/user/:userEmail
+ * @description Busca issues por email do usuário (usando labels e description).
+ * 
+ * @param {string} userEmail - Email do usuário.
+ * 
+ * @returns {Object} 200 - Lista de issues do usuário.
+ */
+app.get('/api/tickets/user/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+    const decodedEmail = decodeURIComponent(userEmail);
+    
+    // Normalizar email para label
+    const emailToLabel = (email) => {
+      return email.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    };
+    
+    const safeEmail = emailToLabel(decodedEmail);
+    const labelReq = `req-${safeEmail}`;
+    const labelId = `id-${safeEmail}`;
+    
+    // Escapar aspas para JQL
+    const escapedEmail = decodedEmail.replace(/"/g, '\\"');
+    
+    // Buscar por labels ou description
+    const jql = `(labels = "${labelReq}" OR labels = "${labelId}" OR description ~ "Requested by: ${escapedEmail}") ORDER BY priority DESC, created DESC`;
+
+    console.log(`[GET /api/tickets/user] Email: ${decodedEmail}, JQL: ${jql}`);
+
+    const result = await searchIssues({
+      jql,
+      fields: [...DEFAULT_ISSUE_FIELDS, 'labels']
+    });
+
+    console.log(`[GET /api/tickets/user] Total: ${result.total} issues`);
+    // Retornar apenas o array de issues para compatibilidade com o frontend
+    res.json(result.issues || []);
+  } catch (error) {
+    console.error('[GET /api/tickets/user] Erro:', error.message);
+    res.status(error.status || 500).json({ error: error.message });
+  }
+});
+
+/**
+ * @route GET /api/tickets/user/:accountId/by-account
+ * @description Busca issues por accountId do usuário Jira.
  * 
  * @param {string} accountId - Account ID do usuário Jira.
  * @query {string} [role] - 'assignee', 'reporter', ou 'any' (padrão).
  * 
  * @returns {Object} 200 - Lista de issues do usuário.
  */
-app.get('/api/tickets/user/:accountId', async (req, res) => {
+app.get('/api/tickets/user/:accountId/by-account', async (req, res) => {
   try {
     const { accountId } = req.params;
     const { role = 'any' } = req.query;
@@ -474,17 +561,17 @@ app.get('/api/tickets/user/:accountId', async (req, res) => {
     
     jql += ' ORDER BY updated DESC';
 
-    console.log(`[GET /api/tickets/user] Account: ${decodedAccountId}, JQL: ${jql}`);
+    console.log(`[GET /api/tickets/user/by-account] Account: ${decodedAccountId}, JQL: ${jql}`);
 
     const result = await searchIssues({
       jql,
       fields: [...DEFAULT_ISSUE_FIELDS, 'labels']
     });
 
-    console.log(`[GET /api/tickets/user] Total: ${result.total} issues`);
-    res.json(result);
+    console.log(`[GET /api/tickets/user/by-account] Total: ${result.total} issues`);
+    res.json(result.issues || []);
   } catch (error) {
-    console.error('[GET /api/tickets/user] Erro:', error.message);
+    console.error('[GET /api/tickets/user/by-account] Erro:', error.message);
     res.status(error.status || 500).json({ error: error.message });
   }
 });
