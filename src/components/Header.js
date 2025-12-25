@@ -4,8 +4,10 @@ function Header({ user, onCreateRequest, onRefresh, selectedUser, onUserSwitch }
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const users = [
-    { name: 'Targeted Services', email: 'contact@targeted.services' },
-    { name: 'Emin Fidan', email: 'efidan@ku.edu.tr' }
+    { name: 'Franscisco Kauan', email: 'kauan.ti@grupocoagro.com' },
+    { name: 'João Carlos', email: 'joao.carlos@grupocoagro.com' },
+    { name: 'Leandro Ademar', email: 'leandro.ademar@grupocoagro.com' },
+    { name: 'Eduardo Oliveira', email: 'eduardo.oliveira@grupocoagro.com' },
   ];
 
   const handleUserSwitch = (userEmail) => {
@@ -17,9 +19,6 @@ function Header({ user, onCreateRequest, onRefresh, selectedUser, onUserSwitch }
     <header className="main-header">
       <div className="header-content">
         <div className="header-left">
-          <p className="user-subtitle">
-            Viewing requests for: {selectedUser?.name || 'Targeted Services'}
-          </p>
         </div>
         
         <div className="header-right">
@@ -30,10 +29,10 @@ function Header({ user, onCreateRequest, onRefresh, selectedUser, onUserSwitch }
                 onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <div className="user-avatar">
-                  {(selectedUser?.name || 'T').charAt(0)}
+                  {(selectedUser?.name || 'S').charAt(0)}
                 </div>
                 <div className="user-info">
-                  <span className="user-name">{selectedUser?.name || 'Targeted Services'}</span>
+                  <span className="user-name">{selectedUser?.name || 'Usuário Suporte'}</span>
                   <span className="user-email">{selectedUser?.email || 'contact@targeted.services'}</span>
                 </div>
                 <span className="dropdown-arrow">▼</span>

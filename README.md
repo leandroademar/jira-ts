@@ -78,6 +78,10 @@ Create a `.env` file in the root directory:
 REACT_APP_JIRA_EMAIL=your-email@domain.com
 REACT_APP_JIRA_API_TOKEN=your-jira-api-token
 REACT_APP_JIRA_DOMAIN=your-domain.atlassian.net
+
+# Supabase Configuration
+REACT_APP_SUPABASE_URL=https://your-project.supabase.co
+REACT_APP_SUPABASE_ANON_KEY=your-anon-key
 ```
 
 ### 4. Start the Application

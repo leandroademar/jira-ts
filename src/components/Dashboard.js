@@ -4,12 +4,17 @@ import Button from './Button';
 import { formatDate, getPriorityColorClass } from '../api/jira';
 
 function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRequest, onRefresh }) {
-  // Filter tickets for display (only open tickets)
+  const [filter, setFilter] = useState('open'); // 'open' ou 'all'
+  
+  // Filter tickets for display
   const openTickets = allTickets.filter(ticket => 
     !ticket.fields.status?.name?.toLowerCase().includes('done') &&
     !ticket.fields.status?.name?.toLowerCase().includes('closed') &&
     !ticket.fields.status?.name?.toLowerCase().includes('resolved')
   );
+
+  // Tickets to display based on filter
+  const displayedTickets = filter === 'all' ? allTickets : openTickets;
 
   const openTicketInJira = (ticketKey) => {
     const jiraUrl = `https://${process.env.REACT_APP_JIRA_DOMAIN}/browse/${ticketKey}`;
@@ -29,7 +34,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
           </div>
           <div className="stat-content">
             <div className="stat-number">{openTickets.length}</div>
-            <div className="stat-label">Open Tickets</div>
+            <div className="stat-label">Tickets Abertos</div>
           </div>
         </div>
         
@@ -49,7 +54,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                 ticket.fields.status?.name?.toLowerCase().includes('testing')
               ).length}
             </div>
-            <div className="stat-label">In Progress</div>
+            <div className="stat-label">Em Progresso</div>
           </div>
         </div>
         
@@ -69,7 +74,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                 ticket.fields.status?.name?.toLowerCase().includes('complete')
               ).length}
             </div>
-            <div className="stat-label">Closed</div>
+            <div className="stat-label">Fechados</div>
           </div>
         </div>
         
@@ -85,7 +90,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
           </div>
           <div className="stat-content">
             <div className="stat-number">{allTickets.length}</div>
-            <div className="stat-label">Total Created</div>
+            <div className="stat-label">Total Criados</div>
           </div>
         </div>
       </div>
@@ -94,7 +99,21 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
       <div className="tickets-section">
         <div className="section-header">
           <div className="section-header-left">
-            <h2 className="section-title">Recent Tickets</h2>
+            <h2 className="section-title">Tickets Recentes</h2>
+            <div className="filter-buttons">
+              <button
+                onClick={() => setFilter('open')}
+                className={`filter-btn ${filter === 'open' ? 'active' : ''}`}
+              >
+                Abertos ({openTickets.length})
+              </button>
+              <button
+                onClick={() => setFilter('all')}
+                className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+              >
+                Todos ({allTickets.length})
+              </button>
+            </div>
           </div>
           <div className="section-header-right">
             <button 
@@ -102,13 +121,13 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
               className="create-request-btn"
             >
               <span className="btn-icon">+</span>
-              Create Request
+              Criar Solicitação
             </button>
             
             <button 
               onClick={onRefresh}
               className="refresh-btn"
-              title="Refresh"
+              title="Atualizar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 4V10H7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -120,14 +139,20 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
         </div>
         
         <div className="tickets-list">
-          {openTickets.length === 0 ? (
+          {displayedTickets.length === 0 ? (
             <div className="empty-state">
               <div className="empty-icon">🎉</div>
-              <h3 className="empty-title">No open tickets!</h3>
-              <p className="empty-description">You haven't created any open tickets yet.</p>
+              <h3 className="empty-title">
+                {filter === 'open' ? 'Nenhum ticket aberto!' : 'Nenhum ticket encontrado!'}
+              </h3>
+              <p className="empty-description">
+                {filter === 'open' 
+                  ? 'Você ainda não criou nenhum ticket aberto.' 
+                  : 'Não há tickets para exibir.'}
+              </p>
             </div>
           ) : (
-            openTickets.slice(0, 10).map((ticket) => (
+            displayedTickets.slice(0, 50).map((ticket) => (
               <div 
                 key={ticket.id} 
                 className={`ticket-card ${selectedTicket?.id === ticket.id ? 'expanded' : ''}`}
@@ -156,7 +181,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                         <path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z" stroke="currentColor" strokeWidth="2" fill="none"/>
                         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" fill="none"/>
                       </svg>
-                      Show Details
+                      Ver Detalhes
                     </button>
                     <button 
                       onClick={(e) => {
@@ -169,7 +194,7 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                         <path d="M7 17L17 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         <path d="M7 7H17V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      Open in Jira
+                      Abrir no Jira
                     </button>
                   </div>
                 </div>
@@ -179,13 +204,13 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                   
                   <div className="ticket-details">
                     <span className="detail-item">
-                      <strong>Project:</strong> {ticket.fields.project?.name}
+                      <strong>Projeto:</strong> {ticket.fields.project?.name}
                     </span>
                     <span className="detail-item">
-                      <strong>Type:</strong> {ticket.fields.issuetype?.name}
+                      <strong>Tipo:</strong> {ticket.fields.issuetype?.name}
                     </span>
                     <span className="detail-item">
-                      <strong>Created:</strong> {formatDate(ticket.fields.created)}
+                      <strong>Criado:</strong> {formatDate(ticket.fields.created)}
                     </span>
                   </div>
                 </div>
@@ -196,19 +221,19 @@ function Dashboard({ allTickets, user, onTicketClick, selectedTicket, onCreateRe
                     <div className="expanded-content">
                       <div className="expanded-grid">
                         <div className="expanded-item">
-                          <strong>Assignee:</strong>
-                          <span>{ticket.fields.assignee?.displayName || 'Unassigned'}</span>
+                          <strong>Responsável:</strong>
+                          <span>{ticket.fields.assignee?.displayName || 'Não atribuído'}</span>
                         </div>
                         <div className="expanded-item">
-                          <strong>Reporter:</strong>
-                          <span>{ticket.fields.reporter?.displayName || 'Unknown'}</span>
+                          <strong>Relator:</strong>
+                          <span>{ticket.fields.reporter?.displayName || 'Desconhecido'}</span>
                         </div>
                         <div className="expanded-item">
-                          <strong>Updated:</strong>
+                          <strong>Atualizado:</strong>
                           <span>{formatDate(ticket.fields.updated)}</span>
                         </div>
                         <div className="expanded-item">
-                          <strong>Project Key:</strong>
+                          <strong>Chave do Projeto:</strong>
                           <span>{ticket.fields.project?.key}</span>
                         </div>
                       </div>

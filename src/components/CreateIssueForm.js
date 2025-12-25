@@ -33,9 +33,23 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
       const response = await fetch(`${API_BASE_URL}/projects`);
       if (response.ok) {
         const projectsData = await response.json();
-        setProjects(projectsData);
-        if (projectsData.length > 0) {
-          setFormData(prev => ({ ...prev, projectId: projectsData[0].id }));
+        // Filter to only show SUPORTE project or find it in the list
+        const suporteProject = projectsData.find(p => p.key === 'SUP' || p.name === 'Suporte' || p.key === 'SUPORTE');
+        if (suporteProject) {
+          setProjects([suporteProject]);
+          setFormData(prev => ({ ...prev, projectId: suporteProject.id }));
+        } else {
+          // If SUPORTE not found, show all projects but prefer SUPORTE
+          setProjects(projectsData);
+          const supProject = projectsData.find(p => 
+            p.key?.toUpperCase().includes('SUP') || 
+            p.name?.toUpperCase().includes('SUPORTE')
+          );
+          if (supProject) {
+            setFormData(prev => ({ ...prev, projectId: supProject.id }));
+          } else if (projectsData.length > 0) {
+            setFormData(prev => ({ ...prev, projectId: projectsData[0].id }));
+          }
         }
       }
     } catch (err) {
@@ -71,7 +85,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
         summary: formData.summary,
         description: formData.description || formData.summary,
         priority: formData.priority,
-        requestedBy: selectedUser?.email || 'contact@targeted.services'
+        requestedBy: selectedUser?.email || 'suporte@grupocoagro.com'
       };
 
       const response = await fetch(`${API_BASE_URL}/issues`, {
@@ -90,11 +104,11 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
       } else {
         const errorData = await response.json();
         console.error('Error creating issue:', errorData);
-        setError(errorData.error || 'Failed to create issue');
+        setError(errorData.error || 'Falha ao criar solicitação');
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Failed to create issue. Please try again.');
+      setError('Falha ao criar solicitação. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -111,16 +125,16 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
         {/* Header */}
         <div className="create-issue-header">
           <div className="header-left">
-            <h1 className="page-title">Create a Request</h1>
+            <h1 className="page-title">Criar uma Solicitação</h1>
             <p className="user-subtitle">
-              Creating request for: {selectedUser?.name || 'Targeted Services'} ({selectedUser?.email || 'contact@targeted.services'})
+              Criando solicitação para: {selectedUser?.name || 'Suporte Coagro'} ({selectedUser?.email || 'suporte@grupocoagro.com'})
             </p>
           </div>
           <button 
             onClick={onClose} 
             className="back-to-dashboard-btn"
           >
-            ← Back to Dashboard
+            ← Voltar ao Painel
           </button>
         </div>
 
@@ -134,32 +148,65 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
             )}
 
             <div className="form-grid">
-              {/* Project Selection */}
-              <div className="form-group">
-                <label htmlFor="projectId" className="form-label">
-                  Project *
-                </label>
-                <select
-                  id="projectId"
-                  name="projectId"
-                  value={formData.projectId}
-                  onChange={handleInputChange}
-                  required
-                  className="form-select"
-                >
-                  <option value="">Select a project</option>
-                  {projects.map(project => (
-                    <option key={project.id} value={project.id}>
-                      {project.name} ({project.key})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* Project Selection - Fixed to SUPORTE project */}
+              {projects.length > 1 ? (
+                <div className="form-group">
+                  <label htmlFor="projectId" className="form-label">
+                    Projeto *
+                  </label>
+                  <select
+                    id="projectId"
+                    name="projectId"
+                    value={formData.projectId}
+                    onChange={handleInputChange}
+                    required
+                    className="form-select"
+                  >
+                    <option value="">Selecione um projeto</option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>
+                        {project.name} ({project.key})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : projects.length === 1 ? (
+                <div className="form-group">
+                  <label htmlFor="projectDisplay" className="form-label">
+                    Projeto
+                  </label>
+                  <input
+                    type="text"
+                    id="projectDisplay"
+                    value={`${projects[0].name} (${projects[0].key})`}
+                    disabled
+                    className="form-input"
+                    style={{ backgroundColor: '#f3f4f6', cursor: 'not-allowed', opacity: 0.8 }}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label htmlFor="projectId" className="form-label">
+                    Projeto *
+                  </label>
+                  <select
+                    id="projectId"
+                    name="projectId"
+                    value={formData.projectId}
+                    onChange={handleInputChange}
+                    required
+                    className="form-select"
+                    disabled
+                  >
+                    <option value="">Carregando projetos...</option>
+                  </select>
+                </div>
+              )}
 
               {/* Issue Type Selection */}
               <div className="form-group">
                 <label htmlFor="issueTypeId" className="form-label">
-                  Request Type *
+                  Tipo de Solicitação *
                 </label>
                 <select
                   id="issueTypeId"
@@ -170,7 +217,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                   disabled={!formData.projectId}
                   className="form-select"
                 >
-                  <option value="">Select a request type</option>
+                  <option value="">Selecione um tipo de solicitação</option>
                   {issueTypes.map(type => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -182,7 +229,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
               {/* Priority */}
               <div className="form-group">
                 <label htmlFor="priority" className="form-label">
-                  Priority
+                  Prioridade
                 </label>
                 <select
                   id="priority"
@@ -191,19 +238,19 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                   onChange={handleInputChange}
                   className="form-select"
                 >
-                  <option value="1">Highest</option>
-                  <option value="2">High</option>
-                  <option value="3">Medium</option>
-                  <option value="4">Low</option>
-                  <option value="5">Lowest</option>
+                  <option value="1">Máxima</option>
+                  <option value="2">Alta</option>
+                  <option value="3">Média</option>
+                  <option value="4">Baixa</option>
+                  <option value="5">Mínima</option>
                 </select>
               </div>
             </div>
 
             {/* Summary */}
-            <div className="form-group full-width">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label htmlFor="summary" className="form-label">
-                Summary *
+                Resumo *
               </label>
               <input
                 type="text"
@@ -212,15 +259,15 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                 value={formData.summary}
                 onChange={handleInputChange}
                 required
-                placeholder="Brief summary of your request"
+                placeholder="Resumo breve da sua solicitação"
                 className="form-input"
               />
             </div>
 
             {/* Description */}
-            <div className="form-group full-width">
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
               <label htmlFor="description" className="form-label">
-                Description
+                Descrição
               </label>
               <textarea
                 id="description"
@@ -228,7 +275,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={6}
-                placeholder="Provide more details about your request..."
+                placeholder="Forneça mais detalhes sobre sua solicitação..."
                 className="form-textarea"
               />
             </div>
@@ -241,14 +288,14 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                 className="cancel-btn"
                 disabled={loading}
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 type="submit"
                 className="submit-btn"
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Request'}
+                {loading ? 'Criando...' : 'Criar Solicitação'}
               </button>
             </div>
           </form>

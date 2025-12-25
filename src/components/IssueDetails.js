@@ -74,18 +74,18 @@ function IssueDetails({ ticket, onClose, user }) {
             <button 
               onClick={openTicketInJira}
               className="view-jira-btn"
-              title="Open in Jira"
+              title="Abrir no Jira"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M7 17L17 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M7 7H17V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              Open in Jira
+              Abrir no Jira
             </button>
             <button 
               onClick={onClose}
               className="close-btn"
-              title="Close"
+              title="Fechar"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -103,25 +103,25 @@ function IssueDetails({ ticket, onClose, user }) {
               {loading && (
                 <div className="loading-section">
                   <div className="loading-spinner-small"></div>
-                  <p>Loading ticket details...</p>
+                  <p>Carregando detalhes do ticket...</p>
                 </div>
               )}
 
               {error && (
                 <div className="error-section">
-                  <p className="error-message">Failed to load detailed information: {error}</p>
+                  <p className="error-message">Falha ao carregar informações detalhadas: {error}</p>
                 </div>
               )}
 
               <div className="content-section">
-                <h3 className="section-title">Description</h3>
+                <h3 className="section-title">Descrição</h3>
                 <div className="description-content">
                   {(() => {
                     const descriptionText = getDescriptionText();
                     if (descriptionText) {
                       return <pre className="description-text">{descriptionText}</pre>;
                     } else {
-                      return <p className="no-description">No description provided</p>;
+                      return <p className="no-description">Nenhuma descrição fornecida</p>;
                     }
                   })()}
                 </div>
@@ -129,7 +129,7 @@ function IssueDetails({ ticket, onClose, user }) {
 
               {/* Comments/Activity Section */}
               <div className="content-section">
-                <h3 className="section-title">Comments & Activity</h3>
+                <h3 className="section-title">Comentários e Atividades</h3>
                 <div className="activity-content">
                   {(() => {
                     const comments = getComments();
@@ -142,8 +142,8 @@ function IssueDetails({ ticket, onClose, user }) {
                           {customer.length > 0 && (
                             <div className="comments-section">
                               <h4 className="comments-section-title">
-                                <span className="comment-type-badge customer-badge">Customer</span>
-                                Customer Comments ({customer.length})
+                                <span className="comment-type-badge customer-badge">Cliente</span>
+                                Comentários do Cliente ({customer.length})
                               </h4>
                               <div className="comments-list">
                                 {customer.map((comment, index) => (
@@ -151,9 +151,9 @@ function IssueDetails({ ticket, onClose, user }) {
                                     <div className="comment-header">
                                       <div className="comment-author">
                                         <span className="author-name">
-                                          {comment.author?.displayName || 'Unknown User'}
+                                          {comment.author?.displayName || 'Usuário Desconhecido'}
                                         </span>
-                                        <span className="comment-type-indicator">Customer</span>
+                                        <span className="comment-type-indicator">Cliente</span>
                                         <span className="comment-date">
                                           {formatDateTime(comment.created)}
                                         </span>
@@ -174,8 +174,8 @@ function IssueDetails({ ticket, onClose, user }) {
                           {internal.length > 0 && (
                             <div className="comments-section">
                               <h4 className="comments-section-title">
-                                <span className="comment-type-badge internal-badge">Internal</span>
-                                Internal Comments ({internal.length})
+                                <span className="comment-type-badge internal-badge">Interno</span>
+                                Comentários Internos ({internal.length})
                               </h4>
                               <div className="comments-list">
                                 {internal.map((comment, index) => (
@@ -183,9 +183,9 @@ function IssueDetails({ ticket, onClose, user }) {
                                     <div className="comment-header">
                                       <div className="comment-author">
                                         <span className="author-name">
-                                          {comment.author?.displayName || 'Unknown User'}
+                                          {comment.author?.displayName || 'Usuário Desconhecido'}
                                         </span>
-                                        <span className="comment-type-indicator">Internal</span>
+                                        <span className="comment-type-indicator">Interno</span>
                                         <span className="comment-date">
                                           {formatDateTime(comment.created)}
                                         </span>
@@ -204,12 +204,12 @@ function IssueDetails({ ticket, onClose, user }) {
 
                           {/* No comments message */}
                           {customer.length === 0 && internal.length === 0 && (
-                            <p className="no-activity">No comments or activity</p>
+                            <p className="no-activity">Nenhum comentário ou atividade</p>
                           )}
                         </div>
                       );
                     } else {
-                      return <p className="no-activity">No comments or activity</p>;
+                      return <p className="no-activity">Nenhum comentário ou atividade</p>;
                     }
                   })()}
                 </div>
@@ -219,10 +219,10 @@ function IssueDetails({ ticket, onClose, user }) {
             {/* Right Column - Details */}
             <div className="issue-sidebar">
               <div className="sidebar-section">
-                <h4 className="sidebar-title">Details</h4>
+                <h4 className="sidebar-title">Detalhes</h4>
                 <div className="details-list">
                   <div className="detail-row">
-                    <span className="detail-label">Type:</span>
+                    <span className="detail-label">Tipo:</span>
                     <span className="detail-value">
                       <span className="issue-type">
                         {detailedTicket.fields.issuetype?.name}
@@ -231,17 +231,17 @@ function IssueDetails({ ticket, onClose, user }) {
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Project:</span>
+                    <span className="detail-label">Projeto:</span>
                     <span className="detail-value">{detailedTicket.fields.project?.name}</span>
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Project Key:</span>
+                    <span className="detail-label">Chave do Projeto:</span>
                     <span className="detail-value">{detailedTicket.fields.project?.key}</span>
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Assignee:</span>
+                    <span className="detail-label">Responsável:</span>
                     <span className="detail-value">
                       {detailedTicket.fields.assignee ? (
                         <div className="user-info">
@@ -249,13 +249,13 @@ function IssueDetails({ ticket, onClose, user }) {
                           <span className="user-email">{detailedTicket.fields.assignee.emailAddress}</span>
                         </div>
                       ) : (
-                        <span className="unassigned">Unassigned</span>
+                        <span className="unassigned">Não atribuído</span>
                       )}
                     </span>
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Reporter:</span>
+                    <span className="detail-label">Relator:</span>
                     <span className="detail-value">
                       {detailedTicket.fields.reporter ? (
                         <div className="user-info">
@@ -263,31 +263,31 @@ function IssueDetails({ ticket, onClose, user }) {
                           <span className="user-email">{detailedTicket.fields.reporter.emailAddress}</span>
                         </div>
                       ) : (
-                        <span className="unknown-user">Unknown</span>
+                        <span className="unknown-user">Desconhecido</span>
                       )}
                     </span>
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Created:</span>
+                    <span className="detail-label">Criado:</span>
                     <span className="detail-value">{formatDate(detailedTicket.fields.created)}</span>
                   </div>
                   
                   <div className="detail-row">
-                    <span className="detail-label">Updated:</span>
+                    <span className="detail-label">Atualizado:</span>
                     <span className="detail-value">{formatDate(detailedTicket.fields.updated)}</span>
                   </div>
                   
                   {detailedTicket.fields.duedate && (
                     <div className="detail-row">
-                      <span className="detail-label">Due Date:</span>
+                      <span className="detail-label">Data de Vencimento:</span>
                       <span className="detail-value">{formatDate(detailedTicket.fields.duedate)}</span>
                     </div>
                   )}
                   
                   {detailedTicket.fields.resolution && (
                     <div className="detail-row">
-                      <span className="detail-label">Resolution:</span>
+                      <span className="detail-label">Resolução:</span>
                       <span className="detail-value">{detailedTicket.fields.resolution.name}</span>
                     </div>
                   )}
@@ -295,7 +295,7 @@ function IssueDetails({ ticket, onClose, user }) {
                   {/* Labels */}
                   {detailedTicket.fields.labels && detailedTicket.fields.labels.length > 0 && (
                     <div className="detail-row">
-                      <span className="detail-label">Labels:</span>
+                      <span className="detail-label">Etiquetas:</span>
                       <div className="detail-value">
                         <div className="labels-list">
                           {detailedTicket.fields.labels.map((label, index) => (
@@ -309,7 +309,7 @@ function IssueDetails({ ticket, onClose, user }) {
                   {/* Components */}
                   {detailedTicket.fields.components && detailedTicket.fields.components.length > 0 && (
                     <div className="detail-row">
-                      <span className="detail-label">Components:</span>
+                      <span className="detail-label">Componentes:</span>
                       <div className="detail-value">
                         <div className="components-list">
                           {detailedTicket.fields.components.map((component, index) => (

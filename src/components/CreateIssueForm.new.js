@@ -78,7 +78,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                 content: [
                   {
                     type: "text",
-                    text: formData.description || "No description provided."
+                    text: formData.description || "Nenhuma descrição fornecida."
                   }
                 ]
               }
@@ -104,11 +104,11 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
       } else {
         const errorData = await response.json();
         console.error('Error creating issue:', errorData);
-        setError(errorData.message || 'Failed to create issue');
+        setError(errorData.message || 'Falha ao criar solicitação');
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Failed to create issue. Please try again.');
+      setError('Falha ao criar solicitação. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -124,10 +124,10 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
       <div className="create-issue-container">
         <div className="create-issue-header">
           <div className="header-left">
-            <h1 className="page-title">Create a Request</h1>
+            <h1 className="page-title">Criar uma Solicitação</h1>
             {user && (
               <p className="user-subtitle">
-                Creating as {user.displayName} ({user.emailAddress})
+                Criando como {user.displayName} ({user.emailAddress})
               </p>
             )}
           </div>
@@ -135,7 +135,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
             onClick={onClose} 
             className="back-to-dashboard-btn"
           >
-            ← Back to Dashboard
+            ← Voltar ao Painel
           </button>
         </div>
 
@@ -150,7 +150,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
             <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="projectId" className="form-label">
-                  Project *
+                  Projeto *
                 </label>
                 <select
                   id="projectId"
@@ -160,7 +160,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                   required
                   className="form-select"
                 >
-                  <option value="">Select a project</option>
+                  <option value="">Selecione um projeto</option>
                   {projects.map(project => (
                     <option key={project.id} value={project.id}>
                       {project.name} ({project.key})
@@ -171,7 +171,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
 
               <div className="form-group">
                 <label htmlFor="issueTypeId" className="form-label">
-                  Request Type *
+                  Tipo de Solicitação *
                 </label>
                 <select
                   id="issueTypeId"
@@ -182,7 +182,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                   disabled={!formData.projectId}
                   className="form-select"
                 >
-                  <option value="">Select a request type</option>
+                  <option value="">Selecione um tipo de solicitação</option>
                   {issueTypes.map(type => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -193,7 +193,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
 
               <div className="form-group">
                 <label htmlFor="priority" className="form-label">
-                  Priority
+                  Prioridade
                 </label>
                 <select
                   id="priority"
@@ -202,18 +202,18 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                   onChange={handleInputChange}
                   className="form-select"
                 >
-                  <option value="1">Highest</option>
-                  <option value="2">High</option>
-                  <option value="3">Medium</option>
-                  <option value="4">Low</option>
-                  <option value="5">Lowest</option>
+                  <option value="1">Máxima</option>
+                  <option value="2">Alta</option>
+                  <option value="3">Média</option>
+                  <option value="4">Baixa</option>
+                  <option value="5">Mínima</option>
                 </select>
               </div>
             </div>
 
             <div className="form-group">
               <label htmlFor="summary" className="form-label">
-                Summary *
+                Resumo *
               </label>
               <input
                 type="text"
@@ -222,14 +222,14 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                 value={formData.summary}
                 onChange={handleInputChange}
                 required
-                placeholder="Brief summary of your request"
+                placeholder="Resumo breve da sua solicitação"
                 className="form-input"
               />
             </div>
 
             <div className="form-group">
               <label htmlFor="description" className="form-label">
-                Description
+                Descrição
               </label>
               <textarea
                 id="description"
@@ -237,7 +237,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={6}
-                placeholder="Provide more details about your request..."
+                placeholder="Forneça mais detalhes sobre sua solicitação..."
                 className="form-textarea"
               />
             </div>
@@ -249,14 +249,14 @@ const CreateIssueForm = ({ onClose, onSuccess, user }) => {
                 className="cancel-btn"
                 disabled={loading}
               >
-                Cancel
+                Cancelar
               </button>
               <button
                 type="submit"
                 className="submit-btn"
                 disabled={loading}
               >
-                {loading ? 'Creating...' : 'Create Request'}
+                {loading ? 'Criando...' : 'Criar Solicitação'}
               </button>
             </div>
           </form>

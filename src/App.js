@@ -3,33 +3,38 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CreateIssueForm from './components/CreateIssueForm';
 import IssueDetails from './components/IssueDetails';
-import { fetchMyTickets, fetchCurrentUser, fetchUserTickets } from './api/jira';
+import Login from './components/Login';
+import { fetchCurrentUser, fetchUserTickets } from './api/jira';
+import { useAuth } from './contexts/AuthContext';
 
 function App() {
+  const { user: authUser, loading: authLoading } = useAuth();
   const [allTickets, setAllTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [user, setUser] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [selectedUser, setSelectedUser] = useState({ 
-    name: 'Targeted Services', 
-    email: 'contact@targeted.services' 
-  });
 
   useEffect(() => {
-    loadData();
-  }, [selectedUser]);
+    if (authUser?.email) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [authUser?.email]);
 
   const loadData = async () => {
+    if (!authUser?.email) return;
+    
     try {
       setLoading(true);
       setError(null);
       
-      // Fetch user data and tickets for selected user
+      // Fetch user data and tickets for authenticated user
       const [userData, ticketsData] = await Promise.all([
         fetchCurrentUser(),
-        fetchUserTickets(selectedUser.email)
+        fetchUserTickets(authUser.email)
       ]);
       
       setUser(userData);
@@ -54,16 +59,21 @@ function App() {
     setSelectedTicket(ticket);
   };
 
-  const handleUserSwitch = (userEmail) => {
-    const users = [
-      { name: 'Targeted Services', email: 'contact@targeted.services' },
-      { name: 'Emin Fidan', email: 'efidan@ku.edu.tr' }
-    ];
-    
-    const newUser = users.find(u => u.email === userEmail) || users[0];
-    setSelectedUser(newUser);
-    setSelectedTicket(null); // Clear selected ticket when switching users
-  };
+  // Show login if not authenticated
+  if (authLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="loading-content">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <Login />;
+  }
 
   if (loading) {
     return (
@@ -91,18 +101,22 @@ function App() {
   }
 
   if (showCreateForm) {
-    return <CreateIssueForm onClose={() => setShowCreateForm(false)} onSuccess={loadData} user={user} selectedUser={selectedUser} />;
+    return (
+      <CreateIssueForm 
+        onClose={() => setShowCreateForm(false)} 
+        onSuccess={loadData} 
+        user={user} 
+        selectedUser={{ 
+          name: authUser.user_metadata?.full_name || authUser.email, 
+          email: authUser.email 
+        }} 
+      />
+    );
   }
 
   return (
     <>
-      <Layout 
-        user={user} 
-        selectedUser={selectedUser}
-        onCreateRequest={handleCreateRequest} 
-        onRefresh={handleRefresh}
-        onUserSwitch={handleUserSwitch}
-      >
+      <Layout>
         <Dashboard 
           allTickets={allTickets}
           user={user}
