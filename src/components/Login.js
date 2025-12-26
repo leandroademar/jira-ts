@@ -28,7 +28,7 @@ function Login() {
     }
 
     setLoading(true);
-    const { data, error: signInError } = await signIn(email, password);
+    const { error: signInError } = await signIn(email, password);
     setLoading(false);
 
     if (signInError) {

@@ -32,7 +32,7 @@ describe('App Component', () => {
     });
 
     render(<App />);
-    const loginTitle = screen.getByText(/JIRA - COAGRO/i);
+    const loginTitle = screen.getByText(/JIRA - SUPORTE - COAGRO/i);
     expect(loginTitle).toBeInTheDocument();
   });
 });

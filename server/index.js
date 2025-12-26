@@ -20,6 +20,7 @@
 const express = require('express');
 const cors = require('cors');
 const fetch = require('node-fetch');
+const path = require('path');
 require('dotenv').config();
 
 /**
@@ -170,7 +171,8 @@ const jiraRequest = async (endpoint, options = {}) => {
 /**
  * Busca issues usando o endpoint de pesquisa com paginação automática.
  * 
- * Migrado para a nova API /search/jql que usa paginação por token.
+ * Usa o endpoint POST /search/jql (endpoint atual da API v3).
+ * O endpoint GET /search foi deprecado e retorna 410 (Gone).
  * 
  * @async
  * @param {Object} searchParams - Parâmetros de pesquisa.
@@ -192,37 +194,39 @@ const searchIssues = async ({
   fetchAll = true
 }) => {
   let allIssues = [];
-  let nextPageToken = undefined;
   let isLast = false;
 
   console.log(`[searchIssues] JQL: ${jql}`);
 
-  while (!isLast) {
-    // Nova API /search/jql usa paginação por token (nextPageToken)
-    // Conforme documentação: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-post
-    const requestBody = {
-      jql,
-      maxResults
-    };
-    
-    // Adicionar nextPageToken apenas se existir (não incluir na primeira requisição)
-    if (nextPageToken) {
-      requestBody.nextPageToken = nextPageToken;
-    }
-    
-    // Adicionar fields apenas se fornecido e não vazio
-    if (fields && Array.isArray(fields) && fields.length > 0) {
-      requestBody.fields = fields;
-    }
-    
-    // Adicionar expand apenas se fornecido e não vazio
-    if (expand && Array.isArray(expand) && expand.length > 0) {
-      requestBody.expand = expand;
-    }
+  let nextPageToken = undefined;
 
+  while (!isLast) {
+    // Usar o novo endpoint POST /search/jql (endpoint atual da API v3)
+    // O endpoint GET /search foi deprecado e retorna 410
     try {
-      console.log(`[searchIssues] Requesting page: maxResults=${maxResults}, hasNextToken=${!!nextPageToken}`);
+      const requestBody = {
+        jql,
+        maxResults
+      };
+      
+      // Adicionar nextPageToken apenas se existir (não incluir na primeira requisição)
+      if (nextPageToken) {
+        requestBody.nextPageToken = nextPageToken;
+      }
+      
+      // Adicionar fields apenas se fornecido e não vazio
+      if (fields && Array.isArray(fields) && fields.length > 0) {
+        requestBody.fields = fields;
+      }
+      
+      // Adicionar expand apenas se fornecido e não vazio
+      if (expand && Array.isArray(expand) && expand.length > 0) {
+        requestBody.expand = expand;
+      }
+
+      console.log(`[searchIssues] Requesting page with token: ${nextPageToken || 'initial'}`);
       console.log(`[searchIssues] Request body:`, JSON.stringify(requestBody, null, 2));
+      
       const data = await jiraRequest('/search/jql', {
         method: 'POST',
         body: JSON.stringify(requestBody),
@@ -237,17 +241,18 @@ const searchIssues = async ({
         break;
       }
 
-      // A nova API retorna issues, isLast e nextPageToken
+      // Nova API retorna: issues, total, nextPageToken, isLast
       const issues = data.issues || [];
       allIssues = allIssues.concat(issues);
       
-      isLast = data.isLast === true;
+      const total = data.total || 0;
       nextPageToken = data.nextPageToken;
+      isLast = data.isLast === true || !nextPageToken || issues.length === 0;
 
-      console.log(`[searchIssues] Progresso: ${allIssues.length} issues (isLast=${isLast})`);
+      console.log(`[searchIssues] Progresso: ${allIssues.length}/${total} issues (isLast=${isLast})`);
 
-      // Se não há mais issues e não há token, parar
-      if (!fetchAll || (issues.length === 0 && !nextPageToken)) {
+      // Se não deve buscar todas as páginas, parar
+      if (!fetchAll || isLast) {
         isLast = true;
       }
     } catch (error) {
@@ -260,7 +265,6 @@ const searchIssues = async ({
   return {
     issues: allIssues,
     total: allIssues.length,
-    startAt: 0,
     maxResults: allIssues.length
   };
 };
@@ -684,6 +688,7 @@ app.get('/api/tickets/:issueIdOrKey', async (req, res) => {
  * @body {string|Object} [fields.description] - Descrição (texto ou ADF).
  * @body {Object} [fields.priority] - Prioridade.
  * @body {Object} [fields.assignee] - Assignee (accountId).
+ * @body {Object} [fields.reporter] - Reporter/Relator (accountId ou emailAddress).
  * @body {string[]} [fields.labels] - Labels.
  * @body {Object[]} [fields.components] - Componentes.
  * @body {boolean} [updateHistory=false] - Atualizar histórico do usuário.
@@ -756,6 +761,69 @@ app.post('/api/issues', async (req, res) => {
     // Normaliza assignee
     if (typeof fields.assignee === 'string') {
       issuePayload.fields.assignee = { accountId: fields.assignee };
+    }
+    
+    // Normaliza reporter (relator)
+    if (fields.reporter) {
+      if (typeof fields.reporter === 'string') {
+        // Se for string, pode ser accountId ou email
+        // Tenta como accountId primeiro (formato típico: "5b10a2844c20165700ede21g")
+        if (fields.reporter.length > 20 && !fields.reporter.includes('@')) {
+          issuePayload.fields.reporter = { accountId: fields.reporter };
+        } else {
+          // Assume que é email e tenta buscar o accountId
+          try {
+            const users = await jiraRequest(`/user/search?query=${encodeURIComponent(fields.reporter)}&maxResults=1`);
+            if (users && users.length > 0 && users[0].accountId) {
+              issuePayload.fields.reporter = { accountId: users[0].accountId };
+              console.log(`[POST /api/issues] Reporter encontrado por email: ${fields.reporter} -> ${users[0].accountId}`);
+            } else {
+              // Fallback: tenta usar email diretamente (pode não funcionar em todas as instâncias)
+              issuePayload.fields.reporter = { emailAddress: fields.reporter };
+              console.warn(`[POST /api/issues] Reporter não encontrado, usando email: ${fields.reporter}`);
+            }
+          } catch (searchError) {
+            // Se falhar a busca, tenta usar como email
+            issuePayload.fields.reporter = { emailAddress: fields.reporter };
+            console.warn(`[POST /api/issues] Erro ao buscar reporter, usando email: ${searchError.message}`);
+          }
+        }
+      } else if (fields.reporter.accountId) {
+        // Se já for objeto com accountId, mantém
+        issuePayload.fields.reporter = { accountId: fields.reporter.accountId };
+      } else if (fields.reporter.emailAddress) {
+        // Se tiver email, busca o accountId
+        try {
+          const users = await jiraRequest(`/user/search?query=${encodeURIComponent(fields.reporter.emailAddress)}&maxResults=1`);
+          if (users && users.length > 0 && users[0].accountId) {
+            issuePayload.fields.reporter = { accountId: users[0].accountId };
+            console.log(`[POST /api/issues] Reporter encontrado por email: ${fields.reporter.emailAddress} -> ${users[0].accountId}`);
+          } else {
+            // Fallback: usa email diretamente
+            issuePayload.fields.reporter = { emailAddress: fields.reporter.emailAddress };
+            console.warn(`[POST /api/issues] Reporter não encontrado, usando email: ${fields.reporter.emailAddress}`);
+          }
+        } catch (searchError) {
+          // Se falhar a busca, tenta usar como email
+          issuePayload.fields.reporter = { emailAddress: fields.reporter.emailAddress };
+          console.warn(`[POST /api/issues] Erro ao buscar reporter, usando email: ${searchError.message}`);
+        }
+      }
+    }
+    
+    // Garantir que labels seja um array válido
+    if (issuePayload.fields.labels) {
+      if (!Array.isArray(issuePayload.fields.labels)) {
+        issuePayload.fields.labels = [issuePayload.fields.labels];
+      }
+      // Filtrar labels vazias e normalizar
+      issuePayload.fields.labels = issuePayload.fields.labels
+        .filter(label => label && typeof label === 'string' && label.trim().length > 0)
+        .map(label => label.trim());
+      
+      if (issuePayload.fields.labels.length === 0) {
+        delete issuePayload.fields.labels;
+      }
     }
     
     console.log('[POST /api/issues] Payload:', JSON.stringify(issuePayload, null, 2));
@@ -1524,6 +1592,25 @@ app.get('/api/health', async (req, res) => {
 });
 
 // ============================================================================
+// SERVER STATIC FILES (PRODUCTION)
+// ============================================================================
+
+// Servir arquivos estáticos do build do React em produção
+if (process.env.NODE_ENV === 'production') {
+  // Servir arquivos estáticos da pasta build
+  app.use(express.static(path.join(__dirname, '../build')));
+  
+  // Todas as rotas que não começam com /api devem servir o index.html (SPA routing)
+  app.get('*', (req, res, next) => {
+    // Ignorar rotas da API - deixar passar para o middleware 404
+    if (req.path.startsWith('/api')) {
+      return next();
+    }
+    res.sendFile(path.join(__dirname, '../build/index.html'));
+  });
+}
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
@@ -1537,6 +1624,10 @@ app.use((req, res) => {
     method: req.method
   });
 });
+
+// ============================================================================
+// MIDDLEWARE DE TRATAMENTO DE ERROS
+// ============================================================================
 
 /**
  * Middleware global de tratamento de erros.

@@ -49,7 +49,7 @@
  */
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? '/api' 
-  : 'http://localhost:3003/api';
+  : (process.env.REACT_APP_API_URL || 'http://localhost:3003') + '/api';
 
 /**
  * Configurações padrão para requisições HTTP.

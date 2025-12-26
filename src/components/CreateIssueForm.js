@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import Layout from './Layout';
+import { useAuth } from '../contexts/AuthContext';
 
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
   ? '/api' 
-  : 'http://localhost:3003/api';
+  : (process.env.REACT_APP_API_URL || 'http://localhost:3003') + '/api';
 
 const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
+  const { user: authUser } = useAuth(); // Usuário autenticado do Supabase
   const [loading, setLoading] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
   const [projects, setProjects] = useState([]);
   const [issueTypes, setIssueTypes] = useState([]);
   const [formData, setFormData] = useState({
     projectId: '',
+    projectKey: '',
     issueTypeId: '',
     summary: '',
     description: '',
@@ -30,45 +34,89 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
 
   const loadProjects = async () => {
     try {
+      setLoadingProjects(true);
       const response = await fetch(`${API_BASE_URL}/projects`);
       if (response.ok) {
-        const projectsData = await response.json();
-        // Filter to only show SUPORTE project or find it in the list
-        const suporteProject = projectsData.find(p => p.key === 'SUP' || p.name === 'Suporte' || p.key === 'SUPORTE');
+        const result = await response.json();
+        // A API pode retornar { values: [...] } ou array direto
+        const projectsData = result.values || result || [];
+        
+        console.log('[CreateIssueForm] Projetos carregados:', projectsData);
+        
+        // Buscar projeto SUP - tentar várias variações
+        const suporteProject = projectsData.find(p => {
+          const key = (p.key || '').toUpperCase();
+          const name = (p.name || '').toUpperCase();
+          return key === 'SUP' || 
+                 key === 'SUPORTE' || 
+                 name.includes('SUPORTE') || 
+                 name.includes('SUP') ||
+                 key.includes('SUP');
+        });
+        
         if (suporteProject) {
+          console.log('[CreateIssueForm] Projeto SUP encontrado:', suporteProject);
           setProjects([suporteProject]);
-          setFormData(prev => ({ ...prev, projectId: suporteProject.id }));
-        } else {
-          // If SUPORTE not found, show all projects but prefer SUPORTE
+          // Guardar tanto o id quanto a key para usar no submit
+          const projectId = suporteProject.projectId || suporteProject.id;
+          const projectKey = suporteProject.key;
+          setFormData(prev => ({ 
+            ...prev, 
+            projectId,
+            projectKey 
+          }));
+          } else {
+          console.warn('[CreateIssueForm] Projeto SUP não encontrado. Projetos disponíveis:', 
+            projectsData.map(p => `${p.key} - ${p.name}`));
+          // Se SUP não encontrado, mostrar todos mas tentar selecionar o primeiro
           setProjects(projectsData);
-          const supProject = projectsData.find(p => 
-            p.key?.toUpperCase().includes('SUP') || 
-            p.name?.toUpperCase().includes('SUPORTE')
-          );
-          if (supProject) {
-            setFormData(prev => ({ ...prev, projectId: supProject.id }));
-          } else if (projectsData.length > 0) {
-            setFormData(prev => ({ ...prev, projectId: projectsData[0].id }));
+          if (projectsData.length > 0) {
+            const firstProject = projectsData[0];
+            const projectId = firstProject.projectId || firstProject.id;
+            const projectKey = firstProject.key;
+            setFormData(prev => ({ 
+              ...prev, 
+              projectId,
+              projectKey 
+            }));
           }
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error loading projects:', errorData);
+        setError('Falha ao carregar projetos. Por favor, tente novamente.');
       }
     } catch (err) {
       console.error('Error loading projects:', err);
+      setError('Erro ao carregar projetos: ' + err.message);
+    } finally {
+      setLoadingProjects(false);
     }
   };
 
   const loadIssueTypes = async (projectId) => {
+    if (!projectId) return;
+    
     try {
+      // Não usar setLoading aqui para não bloquear o formulário
       const response = await fetch(`${API_BASE_URL}/projects/${projectId}/issuetypes`);
       if (response.ok) {
         const typesData = await response.json();
+        console.log('[CreateIssueForm] Tipos de issue carregados:', typesData);
         setIssueTypes(typesData);
         if (typesData.length > 0) {
-          setFormData(prev => ({ ...prev, issueTypeId: typesData[0].id }));
+          // Usar id ou issueTypeId dependendo da estrutura
+          const firstTypeId = typesData[0].id || typesData[0].issueTypeId;
+          setFormData(prev => ({ ...prev, issueTypeId: firstTypeId }));
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error loading issue types:', errorData);
+        setError('Falha ao carregar tipos de solicitação.');
       }
     } catch (err) {
       console.error('Error loading issue types:', err);
+      setError('Erro ao carregar tipos de solicitação: ' + err.message);
     }
   };
 
@@ -78,15 +126,53 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
     setError(null);
 
     try {
-      // Updated to match the server's expected format
-      const issueData = {
-        projectId: formData.projectId,
-        issueTypeId: formData.issueTypeId,
-        summary: formData.summary,
-        description: formData.description || formData.summary,
-        priority: formData.priority,
-        requestedBy: selectedUser?.email || 'suporte@grupocoagro.com'
+      // Função para converter email em label válida para Jira
+      const emailToLabel = (email, prefix = 'req') => {
+        if (!email) return '';
+        const sanitized = email.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        return `${prefix}-${sanitized}`;
       };
+
+      // Criar labels baseadas no email do usuário
+      const userLabels = [];
+      if (authUser?.email) {
+        const reqLabel = emailToLabel(authUser.email, 'req');
+        const idLabel = emailToLabel(authUser.email, 'id');
+        if (reqLabel) userLabels.push(reqLabel);
+        if (idLabel) userLabels.push(idLabel);
+        console.log('[CreateIssueForm] Labels criadas para o usuário:', userLabels, 'Email:', authUser.email);
+      }
+
+      // Formato esperado pelo servidor: objeto com "fields"
+      // A API do Jira aceita project por key ou id, e issuetype por id ou name
+      const issueData = {
+        fields: {
+          // Usar key do projeto (mais confiável) ou id como fallback
+          project: formData.projectKey 
+            ? { key: formData.projectKey }
+            : { id: formData.projectId },
+          // Usar id do tipo de issue
+          issuetype: {
+            id: formData.issueTypeId
+          },
+          summary: formData.summary,
+          description: formData.description || formData.summary,
+          // Priority pode ser id (1-5) ou objeto { id: "..." }
+          priority: {
+            id: formData.priority
+          },
+          // Reporter (relator) - sempre usar o email do usuário autenticado do Supabase
+          ...(authUser?.email 
+            ? { reporter: authUser.email }
+            : {}),
+          // Labels para identificar tickets do usuário
+          ...(userLabels.length > 0 
+            ? { labels: userLabels }
+            : {})
+        }
+      };
+
+      console.log('[CreateIssueForm] Enviando dados:', issueData);
 
       const response = await fetch(`${API_BASE_URL}/issues`, {
         method: 'POST',
@@ -116,7 +202,25 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    // Se for mudança de projeto, atualizar também a key
+    if (name === 'projectId') {
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const projectKey = selectedOption?.getAttribute('data-key') || '';
+      const selectedProject = projects.find(p => {
+        const pid = p.projectId || p.id;
+        return pid === value;
+      });
+      const finalKey = projectKey || selectedProject?.key || '';
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        [name]: value,
+        projectKey: finalKey
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   return (
@@ -127,7 +231,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
           <div className="header-left">
             <h1 className="page-title">Criar uma Solicitação</h1>
             <p className="user-subtitle">
-              Criando solicitação para: {selectedUser?.name || 'Suporte Coagro'} ({selectedUser?.email || 'suporte@grupocoagro.com'})
+              Criando solicitação como: {authUser?.user_metadata?.full_name || authUser?.email || 'Usuário'} ({authUser?.email || 'N/A'})
             </p>
           </div>
           <button 
@@ -163,11 +267,14 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                     className="form-select"
                   >
                     <option value="">Selecione um projeto</option>
-                    {projects.map(project => (
-                      <option key={project.id} value={project.id}>
-                        {project.name} ({project.key})
-                      </option>
-                    ))}
+                    {projects.map(project => {
+                      const projectId = project.projectId || project.id;
+                      return (
+                        <option key={projectId} value={projectId}>
+                          {project.name} ({project.key})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               ) : projects.length === 1 ? (
@@ -198,7 +305,7 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                     className="form-select"
                     disabled
                   >
-                    <option value="">Carregando projetos...</option>
+                      <option value="">{loadingProjects ? 'Carregando projetos...' : 'Nenhum projeto encontrado'}</option>
                   </select>
                 </div>
               )}
@@ -218,11 +325,14 @@ const CreateIssueForm = ({ onClose, onSuccess, user, selectedUser }) => {
                   className="form-select"
                 >
                   <option value="">Selecione um tipo de solicitação</option>
-                  {issueTypes.map(type => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
+                  {issueTypes.map(type => {
+                    const typeId = type.id || type.issueTypeId;
+                    return (
+                      <option key={typeId} value={typeId}>
+                        {type.name}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

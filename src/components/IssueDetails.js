@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   formatDate, 
   formatDateTime, 
   extractTextFromADF, 
   fetchTicketDetails,
   separateComments,
-  getCommentType,
   addComment,
   fetchIssueTransitions,
   transitionIssue
@@ -23,13 +22,9 @@ function IssueDetails({ ticket, onClose, user }) {
   const [resolutionComment, setResolutionComment] = useState('');
   const [resolving, setResolving] = useState(false);
 
-  useEffect(() => {
-    if (ticket) {
-      loadTicketDetails();
-    }
-  }, [ticket]);
-
-  const loadTicketDetails = async () => {
+  const loadTicketDetails = useCallback(async () => {
+    if (!ticket) return;
+    
     try {
       setLoading(true);
       setError(null);
@@ -43,7 +38,13 @@ function IssueDetails({ ticket, onClose, user }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ticket]);
+
+  useEffect(() => {
+    if (ticket) {
+      loadTicketDetails();
+    }
+  }, [ticket, loadTicketDetails]);
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();

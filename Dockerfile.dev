@@ -1,0 +1,25 @@
+# Dockerfile para desenvolvimento do frontend
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Copiar arquivos de dependências
+COPY package*.json ./
+
+# Instalar todas as dependências (incluindo devDependencies)
+RUN npm install
+
+# Copiar código fonte
+COPY . .
+
+# Expor porta do frontend
+EXPOSE 3000
+
+# Variável de ambiente
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
+# Comando para iniciar o servidor de desenvolvimento
+CMD ["npm", "start"]
+

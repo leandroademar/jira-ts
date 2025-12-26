@@ -529,9 +529,9 @@ TicketCard.propTypes = {
  */
 function Dashboard({ 
   allTickets = [], 
-  user, 
+  user = null, 
   onTicketClick, 
-  selectedTicket, 
+  selectedTicket = null, 
   onCreateRequest, 
   onRefresh 
 }) {
@@ -907,12 +907,6 @@ Dashboard.propTypes = {
    * Callback para atualizar/recarregar os dados.
    */
   onRefresh: PropTypes.func.isRequired
-};
-
-Dashboard.defaultProps = {
-  allTickets: [],
-  user: null,
-  selectedTicket: null
 };
 
 // ============================================================================

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import CreateIssueForm from './components/CreateIssueForm';
@@ -16,15 +16,7 @@ function App() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
-  useEffect(() => {
-    if (authUser?.email) {
-      loadData();
-    } else {
-      setLoading(false);
-    }
-  }, [authUser?.email]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!authUser?.email) return;
     
     try {
@@ -45,7 +37,15 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authUser?.email]);
+
+  useEffect(() => {
+    if (authUser?.email) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [authUser?.email, loadData]);
 
   const handleRefresh = () => {
     loadData();
