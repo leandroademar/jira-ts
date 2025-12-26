@@ -47,7 +47,7 @@ function Login() {
     <div className="login-container">
       <div className="login-content">
         <div className="login-header">
-          <h1 className="login-title">JIRA - SUPORTE - COAGRO</h1>
+          <h1 className="login-title">JIRA - COAGRO</h1>
           <p className="login-subtitle">Entre com suas credenciais</p>
         </div>
 

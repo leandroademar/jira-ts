@@ -396,12 +396,36 @@ function IssueDetails({ ticket, onClose, user }) {
                     <span className="detail-value">{formatDate(detailedTicket.fields.updated)}</span>
                   </div>
                   
-                  {detailedTicket.fields.duedate && (
-                    <div className="detail-row">
-                      <span className="detail-label">Data de Vencimento:</span>
-                      <span className="detail-value">{formatDate(detailedTicket.fields.duedate)}</span>
-                    </div>
-                  )}
+                  <div className="detail-row">
+                    <span className="detail-label">Data de Vencimento:</span>
+                    <span className="detail-value">
+                      {detailedTicket.fields.duedate ? (
+                        (() => {
+                          const dueDate = new Date(detailedTicket.fields.duedate);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const isOverdue = dueDate < today;
+                          const isToday = dueDate.getTime() === today.getTime();
+                          
+                          return (
+                            <div className="due-date-info">
+                              <span className={isOverdue ? 'due-date overdue' : isToday ? 'due-date today' : 'due-date'}>
+                                {formatDate(detailedTicket.fields.duedate)}
+                              </span>
+                              {isOverdue && (
+                                <span className="overdue-badge">Vencida</span>
+                              )}
+                              {isToday && !isOverdue && (
+                                <span className="today-badge">Hoje</span>
+                              )}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <span className="no-due-date">Não definida</span>
+                      )}
+                    </span>
+                  </div>
                   
                   {detailedTicket.fields.resolution && (
                     <div className="detail-row">

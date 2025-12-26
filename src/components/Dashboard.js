@@ -14,6 +14,7 @@ import PropTypes from 'prop-types';
 import { formatDate } from '../api/jira';
 import { useAuth } from '../contexts/AuthContext';
 
+
 // ============================================================================
 // CONSTANTES
 // ============================================================================
@@ -27,6 +28,7 @@ const FILTER_TYPES = {
   TEAM_OPEN: 'team_open',
   ALL: 'all'
 };
+
 
 /**
  * Status que indicam tickets fechados/resolvidos.
@@ -544,6 +546,7 @@ function Dashboard({
    * @type {[string, Function]}
    */
   const [filter, setFilter] = useState(FILTER_TYPES.MY_OPEN || 'my_open');
+  const { user: authUser } = useAuth(); // Usuário autenticado do Supabase
   const { signOut } = useAuth();
 
   /**
@@ -563,7 +566,10 @@ function Dashboard({
     // Tickets do usuário logado
     const myTickets = allTickets.filter(ticket => 
       ticket.fields?.reporter?.emailAddress === user?.emailAddress || 
-      ticket.fields?.reporter?.accountId === user?.accountId
+      ticket.fields?.reporter?.accountId === user?.accountId ||
+      ticket.fields?.reporter?.email === authUser?.email ||
+      ticket.fields?.assignee?.email === authUser?.email ||
+      ticket.fields?.labels?.includes(`req-${authUser.email.split('@')[0].toLowerCase()}`)
     );
 
     const open = allTickets.filter(ticket => !isClosedStatus(ticket.fields?.status?.name));
@@ -805,7 +811,7 @@ function Dashboard({
       <footer className="dashboard-footer">
         <div className="footer-content">
           <div className="user-info">
-            <span className="user-email">{user?.emailAddress || user?.email}</span>
+            <span className="user-email">{authUser?.email}</span>
           </div>
           <button 
             onClick={signOut} 
